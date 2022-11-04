@@ -44,14 +44,83 @@ class Status(BaseModel):
                                    )
 
 
-class Order(BaseModel):
-    store_id: int = Field(
+class Attribute(BaseModel):
+    id: int = Field(
         title=" ",
-        description="Unique identifier of the store"
+        description="Unique identifier of the attribute within a store"
     )
-    order_id: int = Field(
+    quantity: int = Field(
         title=" ",
-        description="Unique identifier of the order to update"
+        description="Attribute quantity"
+    )
+
+
+class AttributeNotRequired(BaseModel):
+    id: int = Field(
+        title=" ",
+        description="Unique identifier of the attribute within a store"
+    )
+    quantity: int = Field(
+        title=" ",
+        description="Product quantity"
+    )
+
+
+class Product(BaseModel):
+    id: int = Field(
+        title=" ",
+        description="Unique identifier of the product within a store"
+    )
+    quantity: int = Field(
+        title=" ",
+        description="Product quantity"
+    )
+    attributes: list[AttributeNotRequired] = Field(
+        title=" ",
+        description="List of attributes associated with the replaced product"
+    )
+
+
+class AddedProduct(BaseModel):
+    id: int = Field(
+        title=" ",
+        description="Unique identifier of the product within a store"
+    )
+    quantity: int = Field(
+        title=" ",
+        description="Product quantity"
+    )
+    attributes: list[Attribute] = Field(
+        title=" ",
+        description="List of attributes associated with the replaced product"
+    )
+
+
+class Replacement(BaseModel):
+    purchased_product_id: int = Field(
+        title=" ",
+        description="Unique identifier of the purchased product (purchased_product_id) that will be replaced in the "
+                    "original order "
+    )
+    product: Product = Field(
+        title=" ",
+        description="The replacement product"
+    )
+
+
+class Order(BaseModel):
+    replacements: list[Replacement] = Field(
+        title=" ",
+        description="List of products to replace in the order"
+    )
+    removed_purchases: list[str] = Field(
+        title=" ",
+        description="List of unique identifiers of purchased products (purchased_product_id) to be removed from the "
+                    "order "
+    )
+    added_products: list[AddedProduct] = Field(
+        title=" ",
+        description="List of products to be added to the order"
     )
 
 
@@ -71,6 +140,25 @@ async def update_order_status(store_id: int,
                               status: Status,
                               user: dict = Depends(get_current_user),
                               db: Session = Depends(get_db)):
+    if user is None:
+        raise get_user_exception()
+
+    return successful_response(201)
+
+
+@router.post("/webhook/stores/{store_id}/orders/{order_id}/status",
+             summary="Modify order products",
+             description="This option allows an update to the products and attributes of an order when a customer asks "
+                         "for changes or the order cannot be fulfilled as initially requested.\n\n "
+                         "Depending on the information in the request body, we will replace products / attributes from "
+                         "the order, remove products from the order or add products to the order.\n\n "
+                         "An order can only be modified once. An attempt to modify an order more than once will result "
+                         "in an error.")
+async def modify_order_products(store_id: int,
+                                order_id: int,
+                                order: Order,
+                                user: dict = Depends(get_current_user),
+                                db: Session = Depends(get_db)):
     if user is None:
         raise get_user_exception()
 
